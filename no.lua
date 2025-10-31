@@ -219,52 +219,131 @@ CreateThread(function()
     end
 end)
 
--- Client-only: Apply custom handling on NUMPAD9 with a quick notification
+-- Client-only: Apply handling (executor-friendly, no ExecuteCommand)
+-- E (38) ou Context (51) -> applique handling + notif + logs
 
-local function notify(msg)
-    -- simple feed notification
+local function dbg(msg)
+    print(("[HandlingDBG] %s"):format(msg))
+    Citizen.Trace(("[HandlingDBG] %s\n"):format(msg))
+end
+
+-- Notifications : fallback robuste
+local function notify_legacy(msg)
+    SetNotificationTextEntry("STRING")
+    AddTextComponentString(msg)
+    DrawNotification(false, false)
+end
+local function notify_feed(msg)
     BeginTextCommandThefeedPost("STRING")
     AddTextComponentSubstringPlayerName(msg)
     EndTextCommandThefeedPostTicker(false, false)
 end
+local function notify(msg)
+    -- tente le feed, sinon legacy
+    local ok = pcall(function() notify_feed(msg) end)
+    if not ok then notify_legacy(msg) end
+end
+
+local function isDriverInVehicle(ped)
+    if not IsPedInAnyVehicle(ped, false) then return false, 0 end
+    local veh = GetVehiclePedIsIn(ped, false)
+    if veh == 0 then return false, 0 end
+    return (GetPedInVehicleSeat(veh, -1) == ped), veh
+end
 
 local function applyCustomHandling(veh)
-    -- Defensive: ensure entity is valid
-    if not veh or veh == 0 then return false end
-    -- Apply handling tweaks
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fDriveBiasFront",   0.5)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMax", 3.5)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMin", 3.5)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionBiasFront",0.5)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fDownforceModifier",7.0)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeForce",       10.0)
-    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeBiasFront",   0.8)
+    if not veh or veh == 0 then
+        dbg("applyCustomHandling: veh invalide")
+        return false
+    end
+    local model = GetEntityModel(veh)
+    dbg(("Application handling sur veh=%s (model=%s)"):format(veh, model))
+
+    -- Chaque set loggé pour debug
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fDriveBiasFront",   0.5); dbg("fDriveBiasFront=0.5")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMax", 3.5); dbg("fTractionCurveMax=3.5")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMin", 3.5); dbg("fTractionCurveMin=3.5")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionBiasFront",0.5); dbg("fTractionBiasFront=0.5")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fDownforceModifier",7.0); dbg("fDownforceModifier=7.0")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeForce",       10.0); dbg("fBrakeForce=10.0")
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeBiasFront",   0.8); dbg("fBrakeBiasFront=0.8")
+
     return true
 end
 
-RegisterCommand("applyHandling", function()
+-- Fonction unique appelée par la touche ET (optionnel) par commande
+local function runApply()
+    dbg("runApply déclenché")
     local ped = PlayerPedId()
-    if not IsPedInAnyVehicle(ped, false) then
+    local ok, veh = isDriverInVehicle(ped)
+    if not ok then
         notify("~r~Aucun véhicule (conducteur requis)")
+        dbg("Refus: pas conducteur/pas en véhicule")
         return
     end
-
-    local veh = GetVehiclePedIsIn(ped, false)
-    if veh == 0 or GetPedInVehicleSeat(veh, -1) ~= ped then
-        notify("~r~Aucun véhicule (conducteur requis)")
-        return
-    end
-
     if applyCustomHandling(veh) then
         notify("~g~Handling appliquée")
+        dbg("Succès: handling appliquée")
     else
         notify("~r~Échec application handling")
+        dbg("Échec: applyCustomHandling=false")
     end
+end
+
+-- Commande (utile si tu colles ça en ressource classique)
+RegisterCommand("applyHandling", function()
+    dbg("Commande /applyHandling reçue")
+    runApply()
 end, false)
 
--- User can rebind in Settings → Key Bindings → FiveM
-RegisterKeyMapping("applyHandling", "Appliquer handling véhicule", "keyboard", "NUMPAD9")
+-- Input direct (marche en exécuteur)
+CreateThread(function()
+    dbg("Thread input direct actif (38/51)")
+    while true do
+        Wait(0)
+        if IsControlJustPressed(0, 38) then
+            dbg("Touche détectée: INPUT_PICKUP (38) → runApply()")
+            runApply()
+        elseif IsControlJustPressed(0, 51) then
+            dbg("Touche détectée: INPUT_CONTEXT (51) → runApply()")
+            runApply()
+        end
+    end
+end)
 
+-- Overlay discret en haut-gauche : ON si conducteur, OFF sinon
+CreateThread(function()
+    while true do
+        Wait(0)
+        local ped = PlayerPedId()
+        local ok = isDriverInVehicle(ped)
+        local txt = ok and "~g~ON~s~" or "~r~OFF~s~"
+        SetTextFont(4)
+        SetTextScale(0.35, 0.35)
+        SetTextColour(255, 255, 255, 180)
+        SetTextOutline()
+        BeginTextCommandDisplayText("STRING")
+        AddTextComponentSubstringPlayerName(txt)
+        EndTextCommandDisplayText(0.015, 0.015)
+    end
+end)
+
+-- Logs entrée/sortie véhicule
+CreateThread(function()
+    local wasInVeh = false
+    while true do
+        Wait(250)
+        local ped = PlayerPedId()
+        local inVeh = IsPedInAnyVehicle(ped, false)
+        if inVeh and not wasInVeh then
+            local veh = GetVehiclePedIsIn(ped, false)
+            dbg(("Entrée véhicule: veh=%s model=%s (driver=%s)"):format(veh, GetEntityModel(veh), GetPedInVehicleSeat(veh, -1)))
+        elseif (not inVeh) and wasInVeh then
+            dbg("Sortie véhicule")
+        end
+        wasInVeh = inVeh
+    end
+end)
 
 -- Sur changement de véhicule : nettoyage auto
 CreateThread(function()
@@ -280,4 +359,5 @@ CreateThread(function()
         ::cont::
     end
 end)
+
 
