@@ -317,13 +317,11 @@ CreateThread(function()
         Wait(0)
         local ped = PlayerPedId()
         local ok = isDriverInVehicle(ped)
-        local txt = ok and "~g~ON~s~" or "~r~OFF~s~"
         SetTextFont(4)
         SetTextScale(0.35, 0.35)
         SetTextColour(255, 255, 255, 180)
         SetTextOutline()
         BeginTextCommandDisplayText("STRING")
-        AddTextComponentSubstringPlayerName(txt)
         EndTextCommandDisplayText(0.015, 0.015)
     end
 end)
@@ -359,5 +357,6 @@ CreateThread(function()
         ::cont::
     end
 end)
+
 
 
