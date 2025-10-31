@@ -50,13 +50,13 @@ local function applyHandlingTweaks()
     local ped = PlayerPedId()
     if not IsPedInAnyVehicle(ped, false) then
         showQuickNotification("~r~Tu dois être dans un véhicule.")
-        return false
+        return
     end
 
     local vehicle = GetVehiclePedIsIn(ped, false)
     if vehicle == 0 then
         showQuickNotification("~r~Véhicule invalide.")
-        return false
+        return
     end
 
     SetVehicleHandlingFloat(vehicle, "CHandlingData", "fDriveBiasFront", 0.5)
@@ -67,13 +67,11 @@ local function applyHandlingTweaks()
     SetVehicleHandlingFloat(vehicle, "CHandlingData", "fBrakeForce", 10.0)
     SetVehicleHandlingFloat(vehicle, "CHandlingData", "fBrakeBiasFront", 0.8)
 
-    return true
+    showQuickNotification("~g~Traction renforcée appliquée.")
 end
 
 RegisterCommand("ghost_apply_traction", function()
-    if applyHandlingTweaks() then
-        showQuickNotification("~g~Modification de l'handling appliquée !")
-    end
+    applyHandlingTweaks()
 end, false)
 
 RegisterKeyMapping("ghost_apply_traction", "Ajuster la traction du véhicule", "keyboard", "numpad9")
