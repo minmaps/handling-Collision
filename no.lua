@@ -40,42 +40,6 @@ local function drawWindow(x, y, w, h, bgA, borderA)
     DrawRect(x + w/2 - bw/2, y, bw, h, 255,255,255, borderA or 200)
 end
 
-local function showQuickNotification(message)
-    BeginTextCommandThefeedPost("STRING")
-    AddTextComponentSubstringPlayerName(message)
-    EndTextCommandThefeedPostTicker(false, true)
-end
-
-local function applyHandlingTweaks()
-    local ped = PlayerPedId()
-    if not IsPedInAnyVehicle(ped, false) then
-        showQuickNotification("~r~Tu dois être dans un véhicule.")
-        return
-    end
-
-    local vehicle = GetVehiclePedIsIn(ped, false)
-    if vehicle == 0 then
-        showQuickNotification("~r~Véhicule invalide.")
-        return
-    end
-
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fDriveBiasFront", 0.5)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fTractionCurveMax", 3.5)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fTractionCurveMin", 3.5)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fTractionBiasFront", 0.5)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fDownforceModifier", 7.0)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fBrakeForce", 10.0)
-    SetVehicleHandlingFloat(vehicle, "CHandlingData", "fBrakeBiasFront", 0.8)
-
-    showQuickNotification("~g~Traction renforcée appliquée.")
-end
-
-RegisterCommand("ghost_apply_traction", function()
-    applyHandlingTweaks()
-end, false)
-
-RegisterKeyMapping("ghost_apply_traction", "Ajuster la traction du véhicule", "keyboard", "numpad9")
-
 local function restoreAllForVehicle(veh)
     for ent,_ in pairs(ghostVeh) do if DoesEntityExist(ent) then
         SetEntityNoCollisionEntity(veh, ent, false); SetEntityNoCollisionEntity(ent, veh, false) end end
