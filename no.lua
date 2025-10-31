@@ -219,6 +219,53 @@ CreateThread(function()
     end
 end)
 
+-- Client-only: Apply custom handling on NUMPAD9 with a quick notification
+
+local function notify(msg)
+    -- simple feed notification
+    BeginTextCommandThefeedPost("STRING")
+    AddTextComponentSubstringPlayerName(msg)
+    EndTextCommandThefeedPostTicker(false, false)
+end
+
+local function applyCustomHandling(veh)
+    -- Defensive: ensure entity is valid
+    if not veh or veh == 0 then return false end
+    -- Apply handling tweaks
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fDriveBiasFront",   0.5)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMax", 3.5)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionCurveMin", 3.5)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fTractionBiasFront",0.5)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fDownforceModifier",7.0)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeForce",       10.0)
+    SetVehicleHandlingFloat(veh, "CHandlingData", "fBrakeBiasFront",   0.8)
+    return true
+end
+
+RegisterCommand("applyHandling", function()
+    local ped = PlayerPedId()
+    if not IsPedInAnyVehicle(ped, false) then
+        notify("~r~Aucun véhicule (conducteur requis)")
+        return
+    end
+
+    local veh = GetVehiclePedIsIn(ped, false)
+    if veh == 0 or GetPedInVehicleSeat(veh, -1) ~= ped then
+        notify("~r~Aucun véhicule (conducteur requis)")
+        return
+    end
+
+    if applyCustomHandling(veh) then
+        notify("~g~Handling appliquée")
+    else
+        notify("~r~Échec application handling")
+    end
+end, false)
+
+-- User can rebind in Settings → Key Bindings → FiveM
+RegisterKeyMapping("applyHandling", "Appliquer handling véhicule", "keyboard", "NUMPAD9")
+
+
 -- Sur changement de véhicule : nettoyage auto
 CreateThread(function()
     while true do
@@ -233,3 +280,4 @@ CreateThread(function()
         ::cont::
     end
 end)
+
